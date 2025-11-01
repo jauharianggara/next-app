@@ -1,0 +1,373 @@
+name: 🔒 Security Audit
+
+on:
+  schedule:
+    # Run weekly on Sundays at 02:00 UTC
+    - cron: '0 2 * * 0'
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Dockerfile*'
+      - 'docker-compose*.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Dockerfile*'
+      - 'docker-compose*.yml'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # Dependencies security audit
+  dependency-audit:
+    name: 📦 Dependency Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install dependencies
+        run: npm ci
+        
+      - name: 🔍 Run npm audit
+        run: |
+          echo "## 🔍 NPM Audit Results" >> $GITHUB_STEP_SUMMARY
+          
+          # Run audit and capture output
+          if npm audit --audit-level=moderate --json > audit-results.json; then
+            echo "✅ No moderate or higher vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Vulnerabilities detected" >> $GITHUB_STEP_SUMMARY
+            
+            # Parse and display results
+            if command -v jq &> /dev/null; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### 📊 Vulnerability Summary" >> $GITHUB_STEP_SUMMARY
+              jq -r '.metadata | "- **Critical:** \(.vulnerabilities.critical // 0)\n- **High:** \(.vulnerabilities.high // 0)\n- **Moderate:** \(.vulnerabilities.moderate // 0)\n- **Low:** \(.vulnerabilities.low // 0)"' audit-results.json >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+      - name: 🔧 Attempt automatic fixes
+        run: |
+          echo "🔧 Attempting automatic fixes..."
+          npm audit fix --dry-run > audit-fix-preview.txt
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔧 Automatic Fix Preview" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          head -20 audit-fix-preview.txt >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          
+      - name: 📊 Upload audit results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-audit-results
+          path: |
+            audit-results.json
+            audit-fix-preview.txt
+          retention-days: 30
+
+  # Snyk security scan
+  snyk-scan:
+    name: 🛡️ Snyk Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install dependencies
+        run: npm ci
+        
+      - name: 🛡️ Run Snyk security scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=medium --json-file-output=snyk-results.json
+        continue-on-error: true
+        
+      - name: 📊 Process Snyk results
+        if: always()
+        run: |
+          echo "## 🛡️ Snyk Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ -f snyk-results.json ]]; then
+            if command -v jq &> /dev/null; then
+              VULNS=$(jq '.vulnerabilities | length' snyk-results.json)
+              echo "**Vulnerabilities found:** $VULNS" >> $GITHUB_STEP_SUMMARY
+              
+              if [[ $VULNS -gt 0 ]]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "### 📋 Vulnerability Details" >> $GITHUB_STEP_SUMMARY
+                jq -r '.vulnerabilities[] | "- **\(.title)** (\(.severity)) in \(.packageName)"' snyk-results.json | head -10 >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          else
+            echo "✅ No vulnerabilities found or scan completed successfully" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+      - name: 📤 Upload Snyk results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: snyk-security-results
+          path: snyk-results.json
+          retention-days: 30
+
+  # Docker image security scan
+  docker-security:
+    name: 🐳 Docker Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: 🏗️ Build Docker image
+        run: |
+          docker build -t security-scan:latest .
+          
+      - name: 🔍 Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'security-scan:latest'
+          format: 'json'
+          output: 'trivy-results.json'
+          
+      - name: 📊 Process Trivy results
+        run: |
+          echo "## 🔍 Docker Image Security Scan" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ -f trivy-results.json ]]; then
+            if command -v jq &> /dev/null; then
+              CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' trivy-results.json)
+              HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' trivy-results.json)
+              MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' trivy-results.json)
+              
+              echo "### 📊 Vulnerability Summary" >> $GITHUB_STEP_SUMMARY
+              echo "- **Critical:** $CRITICAL" >> $GITHUB_STEP_SUMMARY
+              echo "- **High:** $HIGH" >> $GITHUB_STEP_SUMMARY
+              echo "- **Medium:** $MEDIUM" >> $GITHUB_STEP_SUMMARY
+              
+              if [[ $CRITICAL -gt 0 || $HIGH -gt 0 ]]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "⚠️ **Action required:** Critical or high severity vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "✅ No critical or high severity vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          fi
+          
+      - name: 🔍 Run Grype vulnerability scanner
+        uses: anchore/scan-action@v3
+        with:
+          image: 'security-scan:latest'
+          fail-build: false
+          output-format: json
+          output-file: grype-results.json
+          
+      - name: 📤 Upload security scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docker-security-results
+          path: |
+            trivy-results.json
+            grype-results.json
+          retention-days: 30
+
+  # Code security analysis
+  code-security:
+    name: 🔍 Code Security Analysis
+    runs-on: ubuntu-latest
+    
+    permissions:
+      security-events: write
+      
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🔍 Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          
+      - name: 🏗️ Autobuild
+        uses: github/codeql-action/autobuild@v3
+        
+      - name: 🔍 Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        
+      - name: 🔍 Run Semgrep security scan
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/javascript
+            p/typescript
+            p/react
+            p/nextjs
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        continue-on-error: true
+
+  # Configuration security check
+  config-security:
+    name: ⚙️ Configuration Security
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🔍 Check for sensitive files
+        run: |
+          echo "## ⚙️ Configuration Security Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check for common sensitive files
+          SENSITIVE_FILES=(
+            ".env"
+            ".env.local"
+            ".env.production"
+            "config/database.yml"
+            "config/secrets.yml"
+            "private.key"
+            "*.pem"
+            "*.p12"
+            ".aws/credentials"
+          )
+          
+          FOUND_FILES=()
+          for file in "${SENSITIVE_FILES[@]}"; do
+            if find . -name "$file" -type f | grep -q .; then
+              FOUND_FILES+=("$file")
+            fi
+          done
+          
+          if [[ ${#FOUND_FILES[@]} -gt 0 ]]; then
+            echo "⚠️ **Sensitive files detected:**" >> $GITHUB_STEP_SUMMARY
+            for file in "${FOUND_FILES[@]}"; do
+              echo "- $file" >> $GITHUB_STEP_SUMMARY
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please ensure these files are properly gitignored and don't contain secrets." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No sensitive files detected" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+      - name: 🔍 Check Docker configuration
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🐳 Docker Security Check" >> $GITHUB_STEP_SUMMARY
+          
+          # Check Dockerfile security practices
+          DOCKER_ISSUES=()
+          
+          if grep -q "ADD.*http" Dockerfile* 2>/dev/null; then
+            DOCKER_ISSUES+=("Using ADD with HTTP URLs (use COPY instead)")
+          fi
+          
+          if grep -q "USER root" Dockerfile* 2>/dev/null; then
+            DOCKER_ISSUES+=("Running as root user")
+          fi
+          
+          if ! grep -q "USER" Dockerfile* 2>/dev/null; then
+            DOCKER_ISSUES+=("No explicit USER directive (may run as root)")
+          fi
+          
+          if [[ ${#DOCKER_ISSUES[@]} -gt 0 ]]; then
+            echo "⚠️ **Docker security issues:**" >> $GITHUB_STEP_SUMMARY
+            for issue in "${DOCKER_ISSUES[@]}"; do
+              echo "- $issue" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            echo "✅ Docker configuration looks secure" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Generate security report
+  security-report:
+    name: 📋 Security Report
+    runs-on: ubuntu-latest
+    needs: [dependency-audit, snyk-scan, docker-security, code-security, config-security]
+    if: always()
+    
+    steps:
+      - name: 📥 Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: security-artifacts/
+          
+      - name: 📋 Generate security report
+        run: |
+          echo "## 🔒 Security Audit Report" >> $GITHUB_STEP_SUMMARY
+          echo "**Generated:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 📊 Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dependency Audit:** ${{ needs.dependency-audit.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Snyk Scan:** ${{ needs.snyk-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Docker Security:** ${{ needs.docker-security.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Code Analysis:** ${{ needs.code-security.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Config Check:** ${{ needs.config-security.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Overall security status
+          if [[ "${{ needs.dependency-audit.result }}" == "success" && 
+                "${{ needs.snyk-scan.result }}" == "success" && 
+                "${{ needs.docker-security.result }}" == "success" && 
+                "${{ needs.code-security.result }}" == "success" && 
+                "${{ needs.config-security.result }}" == "success" ]]; then
+            echo "### ✅ Overall Status: SECURE" >> $GITHUB_STEP_SUMMARY
+            echo "All security scans completed successfully with no critical issues." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ⚠️ Overall Status: ATTENTION REQUIRED" >> $GITHUB_STEP_SUMMARY
+            echo "Some security scans detected issues that require attention." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Recommendations" >> $GITHUB_STEP_SUMMARY
+          echo "- Review and address any vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          echo "- Update dependencies regularly" >> $GITHUB_STEP_SUMMARY
+          echo "- Monitor security advisories for used packages" >> $GITHUB_STEP_SUMMARY
+          echo "- Keep Docker base images updated" >> $GITHUB_STEP_SUMMARY
+          echo "- Follow security best practices in code" >> $GITHUB_STEP_SUMMARY
+          
+      - name: 📧 Create security issue (if needed)
+        if: needs.dependency-audit.result == 'failure' || needs.snyk-scan.result == 'failure' || needs.docker-security.result == 'failure'
+        run: |
+          echo "🚨 Security vulnerabilities detected!"
+          echo "Consider creating a security issue to track remediation efforts."
+          
+      - name: 📤 Upload consolidated report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-report-$(date +%Y%m%d)
+          path: security-artifacts/
+          retention-days: 90

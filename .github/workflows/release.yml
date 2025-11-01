@@ -1,0 +1,422 @@
+name: 🚀 Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+env:
+  NODE_VERSION: '20'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Create release
+  create-release:
+    name: 📦 Create Release
+    runs-on: ubuntu-latest
+    
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: 🏷️ Get version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: 📝 Generate changelog
+        id: changelog
+        run: |
+          echo "## 🎉 What's New in ${{ steps.version.outputs.version }}" > changelog.md
+          echo "" >> changelog.md
+          
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [[ -n "$LAST_TAG" ]]; then
+            echo "### 📋 Changes since $LAST_TAG" >> changelog.md
+            git log --pretty=format:"- %s (%h)" $LAST_TAG..HEAD >> changelog.md
+          else
+            echo "### 📋 Initial Release" >> changelog.md
+            echo "This is the first release of the Employee Management System." >> changelog.md
+          fi
+          
+          echo "" >> changelog.md
+          echo "### ✨ Features" >> changelog.md
+          echo "- 🔐 Complete authentication system (login/register)" >> changelog.md
+          echo "- 👥 Employee management (CRUD operations)" >> changelog.md
+          echo "- 🏢 Office and position management" >> changelog.md
+          echo "- 📱 Responsive design for all devices" >> changelog.md
+          echo "- 🧪 Comprehensive testing suite (Playwright)" >> changelog.md
+          echo "- 🐳 Docker containerization" >> changelog.md
+          echo "- 🚀 CI/CD pipeline with GitHub Actions" >> changelog.md
+          
+          echo "" >> changelog.md
+          echo "### 🛠️ Technical Stack" >> changelog.md
+          echo "- **Frontend:** Next.js 15 with TypeScript" >> changelog.md
+          echo "- **Styling:** Tailwind CSS with shadcn/ui" >> changelog.md
+          echo "- **Testing:** Playwright E2E testing" >> changelog.md
+          echo "- **Containerization:** Docker & Docker Compose" >> changelog.md
+          echo "- **CI/CD:** GitHub Actions" >> changelog.md
+          
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          cat changelog.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  # Build release artifacts
+  build-artifacts:
+    name: 🏗️ Build Release Artifacts
+    runs-on: ubuntu-latest
+    needs: create-release
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install dependencies
+        run: npm ci
+        
+      - name: 🏗️ Build application
+        run: npm run build
+        
+      - name: 📦 Create application bundle
+        run: |
+          mkdir -p release-artifacts
+          
+          # Create production build archive
+          tar -czf release-artifacts/employee-management-${{ needs.create-release.outputs.version }}.tar.gz \
+            .next/ \
+            public/ \
+            package.json \
+            next.config.ts \
+            README.md
+            
+          # Create source code archive
+          git archive --format=zip --prefix=employee-management-${{ needs.create-release.outputs.version }}/ \
+            HEAD > release-artifacts/source-code-${{ needs.create-release.outputs.version }}.zip
+            
+          # Create Docker Compose bundle
+          tar -czf release-artifacts/docker-compose-${{ needs.create-release.outputs.version }}.tar.gz \
+            docker-compose.yml \
+            docker-compose.dev.yml \
+            Dockerfile \
+            Dockerfile.dev \
+            .dockerignore \
+            mock-backend/ \
+            README.md
+            
+      - name: 📝 Create deployment instructions
+        run: |
+          cat > release-artifacts/DEPLOYMENT.md << 'EOF'
+          # 🚀 Deployment Instructions
+          
+          ## 📋 Prerequisites
+          - Docker and Docker Compose installed
+          - Node.js 20+ (for development)
+          - Git (for source code)
+          
+          ## 🐳 Docker Deployment (Recommended)
+          
+          ### Production Deployment
+          ```bash
+          # Extract docker compose bundle
+          tar -xzf docker-compose-${{ needs.create-release.outputs.version }}.tar.gz
+          cd employee-management-${{ needs.create-release.outputs.version }}
+          
+          # Start production services
+          docker-compose up -d
+          
+          # Access application
+          # Frontend: http://localhost:3000
+          # Backend API: http://localhost:8080
+          ```
+          
+          ### Development Deployment
+          ```bash
+          # Start development services
+          docker-compose -f docker-compose.dev.yml up -d
+          ```
+          
+          ## 📦 Manual Deployment
+          
+          ### Frontend
+          ```bash
+          # Extract application bundle
+          tar -xzf employee-management-${{ needs.create-release.outputs.version }}.tar.gz
+          
+          # Install dependencies
+          npm install
+          
+          # Start application
+          npm start
+          ```
+          
+          ## 🔧 Configuration
+          
+          ### Environment Variables
+          - `NEXT_PUBLIC_API_URL`: Backend API URL (default: http://localhost:8080)
+          - `NODE_ENV`: Environment (development/production)
+          
+          ### Database
+          The mock backend uses in-memory storage. For production, configure:
+          - PostgreSQL database
+          - Update connection strings in backend configuration
+          
+          ## 🧪 Testing
+          ```bash
+          # Install test dependencies
+          npm ci
+          
+          # Run E2E tests
+          npx playwright test
+          ```
+          
+          ## 📊 Monitoring
+          - Health check: `GET /health` (backend)
+          - Application logs via Docker: `docker-compose logs -f`
+          
+          ## 🔒 Security
+          - Change default passwords
+          - Configure HTTPS in production
+          - Set up proper CORS policies
+          - Review security headers
+          
+          ## 📞 Support
+          For issues and questions, please check:
+          - GitHub Issues: https://github.com/${{ github.repository }}/issues
+          - Documentation: README.md
+          EOF
+          
+      - name: 📊 Generate checksums
+        run: |
+          cd release-artifacts
+          sha256sum * > checksums.txt
+          
+      - name: 📤 Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts-${{ needs.create-release.outputs.version }}
+          path: release-artifacts/
+          retention-days: 90
+
+  # Build and push Docker images
+  build-docker:
+    name: 🐳 Build Docker Images
+    runs-on: ubuntu-latest
+    needs: create-release
+    
+    permissions:
+      contents: read
+      packages: write
+      
+    strategy:
+      matrix:
+        include:
+          - dockerfile: Dockerfile
+            target: production
+            image: frontend
+          - dockerfile: Dockerfile.dev
+            target: development
+            image: frontend-dev
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: 🔐 Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.image }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+            
+      - name: 🚀 Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Run comprehensive tests
+  test-release:
+    name: 🧪 Test Release
+    runs-on: ubuntu-latest
+    needs: [create-release, build-docker]
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install dependencies
+        run: npm ci
+        
+      - name: 🎭 Install Playwright
+        run: npx playwright install --with-deps
+        
+      - name: 🐳 Test Docker images
+        run: |
+          # Pull the built images
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ needs.create-release.outputs.version }}
+          
+          # Test production setup
+          docker-compose up -d
+          sleep 30
+          
+          # Health checks
+          curl -f http://localhost:8080/health
+          curl -f http://localhost:3000
+          
+          docker-compose down
+          
+      - name: 🧪 Run full test suite
+        run: npx playwright test
+        env:
+          CI: true
+          
+      - name: 📊 Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-test-results-${{ needs.create-release.outputs.version }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 30
+
+  # Publish release
+  publish-release:
+    name: 🎉 Publish Release
+    runs-on: ubuntu-latest
+    needs: [create-release, build-artifacts, build-docker, test-release]
+    
+    permissions:
+      contents: write
+      
+    steps:
+      - name: 📥 Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts-${{ needs.create-release.outputs.version }}
+          path: release-artifacts/
+          
+      - name: 🎉 Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.create-release.outputs.version }}
+          name: "Employee Management System ${{ needs.create-release.outputs.version }}"
+          body: ${{ needs.create-release.outputs.changelog }}
+          files: |
+            release-artifacts/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          
+      - name: 📧 Create release summary
+        run: |
+          echo "## 🎉 Release ${{ needs.create-release.outputs.version }} Published!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Release Assets" >> $GITHUB_STEP_SUMMARY
+          echo "- **Application Bundle:** employee-management-${{ needs.create-release.outputs.version }}.tar.gz" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source Code:** source-code-${{ needs.create-release.outputs.version }}.zip" >> $GITHUB_STEP_SUMMARY
+          echo "- **Docker Compose:** docker-compose-${{ needs.create-release.outputs.version }}.tar.gz" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployment Guide:** DEPLOYMENT.md" >> $GITHUB_STEP_SUMMARY
+          echo "- **Checksums:** checksums.txt" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🐳 Docker Images" >> $GITHUB_STEP_SUMMARY
+          echo "- **Production:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ needs.create-release.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Development:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend-dev:${{ needs.create-release.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Quick Start" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Download and extract" >> $GITHUB_STEP_SUMMARY
+          echo "wget https://github.com/${{ github.repository }}/releases/download/${{ needs.create-release.outputs.version }}/docker-compose-${{ needs.create-release.outputs.version }}.tar.gz" >> $GITHUB_STEP_SUMMARY
+          echo "tar -xzf docker-compose-${{ needs.create-release.outputs.version }}.tar.gz" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Start services" >> $GITHUB_STEP_SUMMARY
+          echo "docker-compose up -d" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Access application" >> $GITHUB_STEP_SUMMARY
+          echo "# Frontend: http://localhost:3000" >> $GITHUB_STEP_SUMMARY
+          echo "# Backend: http://localhost:8080" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # Post-release tasks
+  post-release:
+    name: 📋 Post-Release Tasks
+    runs-on: ubuntu-latest
+    needs: [create-release, publish-release]
+    if: always() && needs.publish-release.result == 'success'
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: 🔄 Update development version
+        run: |
+          # This would typically update version numbers for next development cycle
+          echo "# 📋 Post-Release Checklist" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Release ${{ needs.create-release.outputs.version }} published" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Docker images pushed to registry" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Release notes generated" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Artifacts uploaded" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📝 Manual Tasks" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Update documentation" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Announce release to team" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Update production environment" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Monitor application health" >> $GITHUB_STEP_SUMMARY
+          
+      - name: 📧 Notify success
+        run: |
+          echo "🎉 Release ${{ needs.create-release.outputs.version }} completed successfully!"
+          echo "📦 Download: https://github.com/${{ github.repository }}/releases/tag/${{ needs.create-release.outputs.version }}"

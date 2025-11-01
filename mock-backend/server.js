@@ -182,7 +182,7 @@ app.get('/api/user/me', (req, res) => {
 });
 
 // Karyawan endpoints
-app.get('/api/karyawan', (req, res) => {
+app.get('/api/karyawans', (req, res) => {
   const karyawanWithDetails = karyawan.map(k => ({
     ...k,
     jabatan: jabatan.find(j => j.id === k.jabatan_id),
@@ -191,7 +191,7 @@ app.get('/api/karyawan', (req, res) => {
   res.json(successResponse(karyawanWithDetails));
 });
 
-app.get('/api/karyawan/:id', (req, res) => {
+app.get('/api/karyawans/:id', (req, res) => {
   const id = parseInt(req.params.id);
   const employee = karyawan.find(k => k.id === id);
   
@@ -208,7 +208,7 @@ app.get('/api/karyawan/:id', (req, res) => {
   res.json(successResponse(employeeWithDetails));
 });
 
-app.post('/api/karyawan', (req, res) => {
+app.post('/api/karyawans', (req, res) => {
   const { nama, email, jabatan_id, kantor_id } = req.body;
   
   if (!nama || !email || !jabatan_id || !kantor_id) {
@@ -230,7 +230,7 @@ app.post('/api/karyawan', (req, res) => {
   res.status(201).json(successResponse(newEmployee, 'Employee created successfully'));
 });
 
-app.put('/api/karyawan/:id', (req, res) => {
+app.put('/api/karyawans/:id', (req, res) => {
   const id = parseInt(req.params.id);
   const { nama, email, jabatan_id, kantor_id } = req.body;
   
@@ -251,7 +251,7 @@ app.put('/api/karyawan/:id', (req, res) => {
   res.json(successResponse(karyawan[employeeIndex], 'Employee updated successfully'));
 });
 
-app.delete('/api/karyawan/:id', (req, res) => {
+app.delete('/api/karyawans/:id', (req, res) => {
   const id = parseInt(req.params.id);
   const employeeIndex = karyawan.findIndex(k => k.id === id);
   
@@ -264,11 +264,11 @@ app.delete('/api/karyawan/:id', (req, res) => {
 });
 
 // Jabatan endpoints
-app.get('/api/jabatan', (req, res) => {
+app.get('/api/jabatans', (req, res) => {
   res.json(successResponse(jabatan));
 });
 
-app.post('/api/jabatan', (req, res) => {
+app.post('/api/jabatans', (req, res) => {
   const { nama_jabatan } = req.body;
   
   if (!nama_jabatan) {

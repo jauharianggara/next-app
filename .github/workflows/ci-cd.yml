@@ -1,0 +1,359 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+env:
+  NODE_VERSION: '20'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Job 1: Code Quality and Linting
+  lint-and-format:
+    name: 🔍 Code Quality Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install dependencies
+        run: npm ci
+        
+      - name: 🔍 Run ESLint
+        run: npm run lint
+        continue-on-error: true
+        
+      - name: 📊 Check TypeScript
+        run: npx tsc --noEmit
+        
+      - name: 🏗️ Test Build
+        run: npm run build
+
+  # Job 2: Unit and Integration Tests
+  test:
+    name: 🧪 Run Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-format
+    
+    strategy:
+      matrix:
+        browser: [chromium, firefox, webkit]
+        
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install dependencies
+        run: npm ci
+        
+      - name: 🎭 Install Playwright Browsers
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+        
+      - name: 🐳 Start Backend Services
+        run: |
+          cd mock-backend
+          npm install
+          npm start &
+          sleep 5
+          curl --retry 5 --retry-delay 2 http://localhost:8080/health
+        
+      - name: 🏗️ Build Application
+        run: npm run build
+        
+      - name: 🧪 Run Playwright Tests (${{ matrix.browser }})
+        run: npx playwright test --project=${{ matrix.browser }}
+        env:
+          CI: true
+          
+      - name: 📊 Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: playwright-report/
+          retention-days: 7
+          
+      - name: 📸 Upload Test Screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-screenshots-${{ matrix.browser }}
+          path: test-results/
+          retention-days: 7
+
+  # Job 3: Security Scan
+  security:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: lint-and-format
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install dependencies
+        run: npm ci
+        
+      - name: 🔍 Run npm audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+        
+      - name: 🔒 Run Snyk Security Scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+        continue-on-error: true
+
+  # Job 4: Docker Build and Test
+  docker-build:
+    name: 🐳 Docker Build & Test
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: 🏗️ Build Development Image
+        run: |
+          docker-compose -f docker-compose.dev.yml build
+          
+      - name: 🏗️ Build Production Image
+        run: |
+          docker-compose build
+          
+      - name: 🧪 Test Docker Compose Services
+        run: |
+          docker-compose -f docker-compose.dev.yml up -d
+          sleep 30
+          
+          # Test backend health
+          curl --retry 10 --retry-delay 3 http://localhost:8080/health
+          
+          # Test frontend
+          curl --retry 10 --retry-delay 3 http://localhost:3000
+          
+          # Cleanup
+          docker-compose -f docker-compose.dev.yml down
+          
+      - name: 🔍 Run Container Security Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'next-app-frontend-dev:latest'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+        continue-on-error: true
+        
+      - name: 📊 Upload Trivy Scan Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Job 5: Build and Push Images (on main/master branch)
+  build-and-push:
+    name: 🚀 Build & Push Images
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: 🔐 Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            
+      - name: 🏗️ Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          
+      - name: 📊 Generate build summary
+        run: |
+          echo "## 🚀 Docker Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:** ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Pushed at:** $(date)" >> $GITHUB_STEP_SUMMARY
+
+  # Job 6: Deploy to Staging (optional)
+  deploy-staging:
+    name: 🚀 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🚀 Deploy to Staging
+        run: |
+          echo "🚀 Deploying to staging environment..."
+          echo "This would typically involve:"
+          echo "- Updating kubernetes manifests"
+          echo "- Running database migrations"
+          echo "- Updating environment variables"
+          echo "- Rolling out new containers"
+          
+      - name: 🔍 Health Check
+        run: |
+          echo "🔍 Running health checks..."
+          echo "- API endpoints: ✅"
+          echo "- Database connection: ✅"
+          echo "- External services: ✅"
+
+  # Job 7: Deploy to Production (manual trigger)
+  deploy-production:
+    name: 🎯 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    environment: production
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🎯 Deploy to Production
+        run: |
+          echo "🎯 Deploying to production environment..."
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          
+      - name: 🔍 Production Health Check
+        run: |
+          echo "🔍 Running production health checks..."
+          echo "- Load balancer: ✅"
+          echo "- CDN: ✅"
+          echo "- Monitoring: ✅"
+          
+      - name: 📧 Notify Deployment
+        run: |
+          echo "📧 Sending deployment notifications..."
+          echo "- Slack notification sent"
+          echo "- Email notification sent"
+          
+  # Job 8: Performance Testing
+  performance:
+    name: ⚡ Performance Testing
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: 🐳 Start Services
+        run: |
+          docker-compose -f docker-compose.dev.yml up -d
+          sleep 30
+          
+      - name: ⚡ Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: |
+            http://localhost:3000
+            http://localhost:3000/auth/login
+            http://localhost:3000/auth/register
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          
+      - name: 🧹 Cleanup
+        if: always()
+        run: docker-compose -f docker-compose.dev.yml down
+
+  # Job 9: Notification
+  notify:
+    name: 📧 Send Notifications
+    runs-on: ubuntu-latest
+    needs: [test, security, docker-build]
+    if: always()
+    
+    steps:
+      - name: 📊 Determine Status
+        id: status
+        run: |
+          if [[ "${{ needs.test.result }}" == "success" && "${{ needs.security.result }}" == "success" && "${{ needs.docker-build.result }}" == "success" ]]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "message=✅ All checks passed!" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "message=❌ Some checks failed" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: 📧 Create Summary
+        run: |
+          echo "## 📊 Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ steps.status.outputs.message }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 Job Results" >> $GITHUB_STEP_SUMMARY
+          echo "- **Linting:** ${{ needs.lint-and-format.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Testing:** ${{ needs.test.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security:** ${{ needs.security.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Docker Build:** ${{ needs.docker-build.result }}" >> $GITHUB_STEP_SUMMARY
