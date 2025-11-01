@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import DashboardLayout from '@/components/DashboardLayout';
+import CreateInitialJabatan from '@/components/CreateInitialJabatan';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,6 +16,7 @@ import toast from 'react-hot-toast';
 export default function JabatanListPage() {
   const [jabatans, setJabatans] = useState<Jabatan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showInitialSetup, setShowInitialSetup] = useState(false);
 
   useEffect(() => {
     fetchJabatans();
@@ -22,13 +24,37 @@ export default function JabatanListPage() {
 
   const fetchJabatans = async () => {
     try {
+      console.log('Fetching jabatan data...');
       const response = await jabatanApi.getAll();
+      console.log('Jabatan API Response:', response);
+      
       if (response.success && response.data) {
+        console.log('Jabatan data length:', response.data.length);
         setJabatans(response.data);
+        setShowInitialSetup(response.data.length === 0);
+      } else {
+        console.log('No jabatan data or request failed:', response);
+        // If response is successful but data is empty array, don't show setup
+        if (response.success && Array.isArray(response.data) && response.data.length === 0) {
+          setJabatans([]);
+          setShowInitialSetup(false); // Data kosong tapi API sukses
+        } else {
+          setShowInitialSetup(true);
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching jabatans:', error);
-      toast.error('Failed to fetch job positions');
+      
+      // Check if it's an authentication error
+      if (error.response?.status === 401) {
+        toast.error('Please login to access job positions');
+      } else if (error.response?.status === 500) {
+        toast.error('Server error. Please try again later.');
+      } else {
+        toast.error('Failed to fetch job positions. Backend may not be running.');
+      }
+      
+      setShowInitialSetup(false); // Don't show setup on errors
     } finally {
       setLoading(false);
     }
@@ -49,12 +75,49 @@ export default function JabatanListPage() {
     }
   };
 
+  const handleDataCreated = () => {
+    setShowInitialSetup(false);
+    fetchJabatans();
+  };
+
   if (loading) {
     return (
       <ProtectedRoute>
         <DashboardLayout>
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    );
+  }
+
+  if (showInitialSetup) {
+    return (
+      <ProtectedRoute>
+        <DashboardLayout>
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Job Position Management</h1>
+                <p className="mt-2 text-gray-600">
+                  Manage job positions and their descriptions
+                </p>
+              </div>
+              <Link href="/dashboard/jabatan/create">
+                <Button className="flex items-center space-x-2">
+                  <Plus className="h-4 w-4" />
+                  <span>Add Position</span>
+                </Button>
+              </Link>
+            </div>
+            
+                    {showInitialSetup && (
+          <div className="mb-6">
+            <CreateInitialJabatan onSuccess={handleDataCreated} />
+          </div>
+        )}
           </div>
         </DashboardLayout>
       </ProtectedRoute>

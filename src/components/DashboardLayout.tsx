@@ -13,7 +13,8 @@ import {
   LogOut, 
   Menu, 
   X,
-  User
+  User,
+  Activity
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'Karyawan', href: '/dashboard/karyawan', icon: Users },
   { name: 'Kantor', href: '/dashboard/kantor', icon: Building2 },
   { name: 'Jabatan', href: '/dashboard/jabatan', icon: Briefcase },
+  { name: 'System Status', href: '/status', icon: Activity },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
