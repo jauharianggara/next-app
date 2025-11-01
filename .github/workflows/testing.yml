@@ -214,7 +214,7 @@ jobs:
           # Auth endpoints
           curl -X POST http://localhost:8080/api/auth/register \
             -H "Content-Type: application/json" \
-            -d '{"username":"test","email":"test@example.com","password":"password123"}' || exit 1
+            -d '{"username":"test","email":"test@example.com","password":"password123","full_name":"Test User"}' || exit 1
           echo "✅ Register endpoint working"
           
           # Get jabatan

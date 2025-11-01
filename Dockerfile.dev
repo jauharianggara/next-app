@@ -1,9 +1,11 @@
 # Development Dockerfile for Next.js
-FROM node:20-alpine
+FROM node:20-alpine AS base
 
 # Install dependencies for development
 RUN apk add --no-cache libc6-compat
 
+# Development target
+FROM base AS development
 WORKDIR /app
 
 # Copy package files

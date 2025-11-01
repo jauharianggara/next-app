@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import Cookies from 'js-cookie';
-import { User, LoginResponse } from '@/types/api';
+import { User, LoginResponse, ApiResponse } from '@/types/api';
 import { apiClient } from '@/lib/api-client';
 
 interface AuthContextType {
@@ -62,7 +62,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (credentials: { username_or_email: string; password: string }) => {
     try {
-      const response = await apiClient.post<LoginResponse>('/api/auth/login', credentials);
+      const response = await apiClient.post<ApiResponse<LoginResponse>>('/api/auth/login', credentials);
       
       if (response.data.success && response.data.data) {
         const { user, token } = response.data.data;

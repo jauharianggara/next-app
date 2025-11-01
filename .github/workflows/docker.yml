@@ -133,7 +133,7 @@ jobs:
           # Test auth endpoints
           curl -X POST http://localhost:8080/api/auth/register \
             -H "Content-Type: application/json" \
-            -d '{"username":"testuser","email":"test@example.com","password":"password123"}'
+            -d '{"username":"testuser","email":"test@example.com","password":"password123","full_name":"Test User"}'
             
           # Test data endpoints
           curl -f http://localhost:8080/api/jabatans
