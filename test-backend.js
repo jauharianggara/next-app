@@ -8,7 +8,7 @@ async function testBackend() {
   const tests = [
     {
       name: 'Backend Health Check',
-      url: 'http://localhost:8080/api/jabatan',
+      url: 'http://localhost:8080/api/jabatans',
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -16,7 +16,7 @@ async function testBackend() {
     },
     {
       name: 'Backend Karyawan Endpoint',
-      url: 'http://localhost:8080/api/karyawan',
+      url: 'http://localhost:8080/api/karyawans',
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -24,7 +24,7 @@ async function testBackend() {
     },
     {
       name: 'Backend Kantor Endpoint',
-      url: 'http://localhost:8080/api/kantor',
+      url: 'http://localhost:8080/api/kantors',
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
