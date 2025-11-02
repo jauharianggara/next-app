@@ -29,10 +29,21 @@ async function handleRequest(request: NextRequest, method: string) {
     const headers: Record<string, string> = {};
     request.headers.forEach((value, key) => {
       // Skip certain headers that shouldn't be forwarded
-      if (!['host', 'origin', 'referer'].includes(key.toLowerCase())) {
+      if (!['host', 'connection'].includes(key.toLowerCase())) {
         headers[key] = value;
       }
     });
+
+    // Forward CSRF tokens if present
+    const csrfToken = request.cookies.get('XSRF-TOKEN')?.value || 
+                      request.cookies.get('csrf_token')?.value;
+    if (csrfToken) {
+      headers['X-XSRF-TOKEN'] = csrfToken;
+      headers['X-CSRF-TOKEN'] = csrfToken;
+    }
+
+    // Add origin header for CORS
+    headers['Origin'] = new URL(API_BASE_URL).origin;
 
     // Get request body for POST/PUT requests
     let body;
@@ -52,6 +63,7 @@ async function handleRequest(request: NextRequest, method: string) {
       method,
       headers,
       body,
+      credentials: 'include', // Include cookies for CSRF
     });
 
     // Get response data
@@ -63,21 +75,26 @@ async function handleRequest(request: NextRequest, method: string) {
       statusText: response.statusText,
     });
 
-    // Copy response headers
+    // Copy response headers (including Set-Cookie for CSRF)
     response.headers.forEach((value, key) => {
-      nextResponse.headers.set(key, value);
+      // Forward Set-Cookie headers for CSRF tokens
+      if (key.toLowerCase() === 'set-cookie' || 
+          !['content-encoding', 'content-length', 'transfer-encoding'].includes(key.toLowerCase())) {
+        nextResponse.headers.set(key, value);
+      }
     });
 
     // Add CORS headers
-    nextResponse.headers.set('Access-Control-Allow-Origin', '*');
-    nextResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    nextResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    nextResponse.headers.set('Access-Control-Allow-Origin', request.headers.get('origin') || '*');
+    nextResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    nextResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-XSRF-TOKEN, X-CSRF-TOKEN');
+    nextResponse.headers.set('Access-Control-Allow-Credentials', 'true');
 
     return nextResponse;
   } catch (error) {
     console.error('Proxy error:', error);
     return NextResponse.json(
-      { error: 'Proxy request failed' },
+      { error: 'Proxy request failed', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -85,12 +102,15 @@ async function handleRequest(request: NextRequest, method: string) {
 
 // Handle preflight requests
 export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin') || '*';
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-XSRF-TOKEN, X-CSRF-TOKEN',
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Max-Age': '86400', // 24 hours
     },
   });
 }
