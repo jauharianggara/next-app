@@ -1,7 +1,7 @@
 # Complete Backend URL Fix Script
 # filepath: c:\Users\jauha\next-app\complete-fix-backend.ps1
 
-$backendURL = "http://103.167.113.116:8080/api"
+$backendURL = "https://axum.synergyinfinity.id//api"
 
 Write-Host "🚀 COMPLETE BACKEND URL FIX" -ForegroundColor Green
 Write-Host "Target: $backendURL" -ForegroundColor Yellow

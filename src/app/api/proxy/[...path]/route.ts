@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://103.167.113.116:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://axum.synergyinfinity.id/';
 
 export async function GET(request: NextRequest) {
   return handleRequest(request, 'GET');

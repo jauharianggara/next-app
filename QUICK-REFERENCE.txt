@@ -1,0 +1,73 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                    QUICK DEPLOYMENT REFERENCE                        ║
+║              aaPanel - Next.js Frontend Deployment                   ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+📍 URLS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Frontend:         https://nextjs.synergyinfinity.id
+Backend (Direct): https://axum.synergyinfinity.id/api
+Backend (Proxy):  https://nextjs.synergyinfinity.id/api
+
+🔧 QUICK DEPLOYMENT (3 Commands)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Copy Apache config:
+   cp apache-config.conf /www/server/panel/vhost/apache/nextjs.synergyinfinity.id.conf
+
+2. Enable modules & restart:
+   a2enmod proxy proxy_http headers rewrite ssl && systemctl restart apache2
+
+3. Deploy containers:
+   chmod +x deploy-aapanel.sh && ./deploy-aapanel.sh
+
+✅ VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+curl -I https://nextjs.synergyinfinity.id          # Frontend
+curl -I https://nextjs.synergyinfinity.id/api/     # Backend Proxy
+docker ps                                           # Container Status
+docker logs employee-frontend                       # Container Logs
+
+📊 MONITORING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+tail -f /www/wwwlogs/nextjs.synergyinfinity.id-error_log    # Apache
+docker-compose logs -f frontend                              # Docker
+htop                                                         # System
+
+🔄 UPDATE/RESTART
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Restart Frontend:  docker-compose restart frontend
+Restart Apache:    systemctl restart apache2
+Rebuild Image:     docker build --build-arg NEXT_PUBLIC_API_URL=/api -t employee-frontend:latest .
+Full Redeploy:     ./deploy-aapanel.sh
+
+🚨 TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Apache config:     apachectl configtest
+Apache status:     systemctl status apache2
+Container status:  docker ps -a
+Backend test:      curl -I https://axum.synergyinfinity.id/api/
+Modules check:     apache2ctl -M | grep proxy
+
+📁 IMPORTANT FILES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/www/server/panel/vhost/apache/nextjs.synergyinfinity.id.conf  # Apache
+/www/wwwroot/docker-compose.yml                                 # Docker
+/www/wwwroot/deploy-aapanel.sh                                  # Deploy
+/www/wwwlogs/nextjs.synergyinfinity.id-error_log               # Logs
+
+🔐 ENVIRONMENT VARIABLES (Production)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NEXT_PUBLIC_API_URL=/api
+NEXT_PUBLIC_USE_PROXY=true
+NODE_ENV=production
+
+⚡ ONE-LINE DEPLOYMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+curl -fsSL https://raw.githubusercontent.com/your-repo/deploy.sh | bash
+
+Or manually:
+./deploy-aapanel.sh
+
+╔══════════════════════════════════════════════════════════════════════╗
+║  Need help? Check DEPLOYMENT-AAPANEL.md for detailed instructions   ║
+╚══════════════════════════════════════════════════════════════════════╝

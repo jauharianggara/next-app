@@ -13,9 +13,9 @@
 - ✅ `src/app/api/debug/jabatan/route.ts` - Updated fallback URL
 
 ### **2. Environment Files**
-- ✅ `.env.local` - Updated ke `http://103.167.113.116:8080`
+- ✅ `.env.local` - Updated ke `https://axum.synergyinfinity.id/`
 - ✅ `docker-compose.yml` - Environment variable updated
-- ✅ Container environment verified: `NEXT_PUBLIC_API_URL=http://103.167.113.116:8080`
+- ✅ Container environment verified: `NEXT_PUBLIC_API_URL=https://axum.synergyinfinity.id/`
 
 ### **3. UI Enhancements untuk Debugging**
 - ✅ `src/app/auth/login/page.tsx` - Added backend URL display
@@ -26,7 +26,7 @@
 
 ### **Backend Connection ✅**
 ```bash
-Backend API: http://103.167.113.116:8080
+Backend API: https://axum.synergyinfinity.id/
 Status: ACCESSIBLE (401 Unauthorized = Good!)
 Response Time: Working
 ```
@@ -60,7 +60,7 @@ Environment: Correct
 docker exec employee-frontend env | grep NEXT_PUBLIC
 
 # Test backend direct
-Invoke-WebRequest -Uri "http://103.167.113.116:8080/api/jabatans" -Method HEAD
+Invoke-WebRequest -Uri "https://axum.synergyinfinity.id//api/jabatans" -Method HEAD
 
 # Test frontend
 Invoke-WebRequest -Uri "http://localhost:3000" -TimeoutSec 5
@@ -68,7 +68,7 @@ Invoke-WebRequest -Uri "http://localhost:3000" -TimeoutSec 5
 
 ## ✅ **Status Verifikasi**
 
-- [x] Environment variable ter-load: `http://103.167.113.116:8080/api`
+- [x] Environment variable ter-load: `https://axum.synergyinfinity.id//api`
 - [x] API calls menuju backend yang benar
 - [x] Container running dengan konfigurasi benar
 - [x] Login page menampilkan URL backend

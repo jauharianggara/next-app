@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://103.167.113.116:8080';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://axum.synergyinfinity.id/';
     
     // Test connection to backend
     const response = await fetch(`${apiUrl}/api/jabatans`, {
@@ -26,7 +26,7 @@ export async function GET() {
     return NextResponse.json({
       success: false,
       error: error.message,
-      url: `${process.env.NEXT_PUBLIC_API_URL || 'http://103.167.113.116:8080'}/api/jabatans`,
+      url: `${process.env.NEXT_PUBLIC_API_URL || 'https://axum.synergyinfinity.id/'}/api/jabatans`,
     });
   }
 }
