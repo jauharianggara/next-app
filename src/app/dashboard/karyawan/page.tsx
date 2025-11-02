@@ -40,12 +40,18 @@ export default function KaryawanListPage() {
     }
 
     try {
-      await karyawanApi.delete(id);
-      toast.success('Employee deleted successfully');
-      fetchKaryawans();
-    } catch (error) {
+      const response = await karyawanApi.delete(id);
+      
+      if (response.success) {
+        toast.success('Employee deleted successfully');
+        fetchKaryawans();
+      } else {
+        toast.error(response.message || 'Failed to delete employee');
+      }
+    } catch (error: any) {
       console.error('Error deleting karyawan:', error);
-      toast.error('Failed to delete employee');
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete employee';
+      toast.error(errorMessage);
     }
   };
 

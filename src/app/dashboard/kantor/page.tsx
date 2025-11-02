@@ -40,12 +40,18 @@ export default function KantorListPage() {
     }
 
     try {
-      await kantorApi.delete(id);
-      toast.success('Office deleted successfully');
-      fetchKantors();
-    } catch (error) {
+      const response = await kantorApi.delete(id);
+      
+      if (response.success) {
+        toast.success('Office deleted successfully');
+        fetchKantors();
+      } else {
+        toast.error(response.message || 'Failed to delete office. It might have associated employees.');
+      }
+    } catch (error: any) {
       console.error('Error deleting kantor:', error);
-      toast.error('Failed to delete office');
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete office. It might have associated employees.';
+      toast.error(errorMessage);
     }
   };
 

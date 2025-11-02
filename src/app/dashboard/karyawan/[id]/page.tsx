@@ -47,12 +47,18 @@ export default function KaryawanDetailPage() {
     }
 
     try {
-      await karyawanApi.delete(id);
-      toast.success('Employee deleted successfully');
-      router.push('/dashboard/karyawan');
-    } catch (error) {
+      const response = await karyawanApi.delete(id);
+      
+      if (response.success) {
+        toast.success('Employee deleted successfully');
+        router.push('/dashboard/karyawan');
+      } else {
+        toast.error(response.message || 'Failed to delete employee');
+      }
+    } catch (error: any) {
       console.error('Error deleting karyawan:', error);
-      toast.error('Failed to delete employee');
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete employee';
+      toast.error(errorMessage);
     }
   };
 
@@ -65,13 +71,17 @@ export default function KaryawanDetailPage() {
 
     try {
       const response = await karyawanApi.deletePhoto(id);
+      
       if (response.success) {
         toast.success('Photo deleted successfully');
         fetchKaryawan(); // Refresh data
+      } else {
+        toast.error(response.message || 'Failed to delete photo');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting photo:', error);
-      toast.error('Failed to delete photo');
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete photo';
+      toast.error(errorMessage);
     }
   };
 

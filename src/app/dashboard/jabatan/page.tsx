@@ -66,12 +66,18 @@ export default function JabatanListPage() {
     }
 
     try {
-      await jabatanApi.delete(id);
-      toast.success('Job position deleted successfully');
-      fetchJabatans();
-    } catch (error) {
+      const response = await jabatanApi.delete(id);
+      
+      if (response.success) {
+        toast.success('Job position deleted successfully');
+        fetchJabatans();
+      } else {
+        toast.error(response.message || 'Failed to delete job position. It might be assigned to employees.');
+      }
+    } catch (error: any) {
       console.error('Error deleting jabatan:', error);
-      toast.error('Failed to delete job position. It might be assigned to employees.');
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete job position. It might be assigned to employees.';
+      toast.error(errorMessage);
     }
   };
 

@@ -14,6 +14,10 @@ export async function PUT(request: NextRequest) {
   return handleRequest(request, 'PUT');
 }
 
+export async function PATCH(request: NextRequest) {
+  return handleRequest(request, 'PATCH');
+}
+
 export async function DELETE(request: NextRequest) {
   return handleRequest(request, 'DELETE');
 }
@@ -47,12 +51,16 @@ async function handleRequest(request: NextRequest, method: string) {
 
     // Get request body for POST/PUT requests
     let body;
-    if (['POST', 'PUT'].includes(method)) {
+    if (['POST', 'PUT', 'PATCH'].includes(method)) {
       const contentType = request.headers.get('content-type');
-      if (contentType?.includes('application/json')) {
-        body = JSON.stringify(await request.json());
-      } else if (contentType?.includes('multipart/form-data')) {
+      
+      if (contentType?.includes('multipart/form-data')) {
+        // For multipart/form-data (file uploads), pass the FormData directly
         body = await request.formData();
+        // Remove Content-Type header to let fetch set it with boundary
+        delete headers['content-type'];
+      } else if (contentType?.includes('application/json')) {
+        body = JSON.stringify(await request.json());
       } else {
         body = await request.text();
       }

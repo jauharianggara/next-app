@@ -89,7 +89,7 @@ if [ -f "Dockerfile" ]; then
     echo ""
     echo "🔨 Rebuilding Docker image..."
     docker build --no-cache \
-        --build-arg NEXT_PUBLIC_API_URL=/api \
+        --build-arg NEXT_PUBLIC_API_URL=http://axum.synergyinfinity.id/api \
         -t employee-frontend:latest .
     print_status "Image built successfully"
 fi

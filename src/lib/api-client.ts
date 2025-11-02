@@ -7,12 +7,17 @@ const getBaseURL = () => {
   if (typeof window !== 'undefined') {
     // Client-side: check if we should use proxy
     const useProxy = process.env.NEXT_PUBLIC_USE_PROXY === 'true';
-    return useProxy 
-      ? '/api/proxy'
-      : (process.env.NEXT_PUBLIC_API_URL || 'https://axum.synergyinfinity.id/');
+    if (useProxy) {
+      // When using proxy, don't add /api prefix (it will be added in api.ts)
+      return '/api/proxy';
+    }
+    // Direct API: add /api prefix
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://axum.synergyinfinity.id';
+    return apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
   }
   // Server-side: use direct API URL
-  return process.env.NEXT_PUBLIC_API_URL || 'https://axum.synergyinfinity.id/';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://axum.synergyinfinity.id';
+  return apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
 };
 
 // Create axios instance

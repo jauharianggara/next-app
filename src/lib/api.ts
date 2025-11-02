@@ -67,6 +67,7 @@ export const karyawanApi = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      transformRequest: [(data) => data], // Don't transform FormData
     });
     return response.data;
   },
@@ -86,6 +87,7 @@ export const karyawanApi = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      transformRequest: [(data) => data], // Don't transform FormData
     });
     return response.data;
   },
