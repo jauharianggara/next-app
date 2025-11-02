@@ -5,17 +5,14 @@
 services:
   # Frontend Service Only
   frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
+    image: employee-frontend:latest
     container_name: employee-frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.external-server.com}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://localhost:8080}
       - NEXT_TELEMETRY_DISABLED=1
     networks:
       - app-network
