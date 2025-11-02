@@ -9,10 +9,10 @@ const getBaseURL = () => {
     const useProxy = process.env.NEXT_PUBLIC_USE_PROXY === 'true';
     return useProxy 
       ? '/api/proxy'
-      : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
+      : (process.env.NEXT_PUBLIC_API_URL || 'http://103.167.113.116:8080');
   }
   // Server-side: use direct API URL
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  return process.env.NEXT_PUBLIC_API_URL || 'http://103.167.113.116:8080';
 };
 
 // Create axios instance
