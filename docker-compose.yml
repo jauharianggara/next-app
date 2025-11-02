@@ -1,58 +1,31 @@
-version: '3.8'
+# Frontend-Only Docker Compose Configuration
+# This configuration only runs the Next.js frontend application
+# Backend API is expected to be external (remote server)
 
 services:
-  # Next.js Frontend Application
+  # Frontend Service Only
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
+      target: production
+    container_name: employee-frontend
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
-      - NEXT_PUBLIC_API_URL=http://backend:8080
-    depends_on:
-      - backend
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.external-server.com}
+      - NEXT_TELEMETRY_DISABLED=1
     networks:
       - app-network
-    restart: unless-stopped
-
-  # Mock Backend Server (for testing)
-  backend:
-    image: node:18-alpine
-    working_dir: /app
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./mock-backend:/app
-    command: sh -c "npm install && npm start"
-    environment:
-      - NODE_ENV=development
-      - PORT=8080
-    networks:
-      - app-network
-    restart: unless-stopped
-
-  # PostgreSQL Database (if needed)
-  database:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_DB=employee_management
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password123
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - app-network
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  postgres_data:
