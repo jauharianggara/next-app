@@ -179,7 +179,7 @@ export default function EditKaryawanPage() {
                 {karyawan.foto_path ? (
                   <div className="space-y-4">
                     <img
-                      src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/${karyawan.foto_path}`}
+                      src={`${process.env.NEXT_PUBLIC_API_URL || 'https://axum.synergyinfinity.id'}/${karyawan.foto_path}`}
                       alt={karyawan.nama}
                       className="w-32 h-32 rounded-full object-cover mx-auto"
                     />

@@ -24,7 +24,7 @@ export default function BackendStatus() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
         
-        const response = await fetch('/api/proxy/jabatans', {
+        const response = await fetch('/', {
           method: 'HEAD',
           signal: controller.signal
         });

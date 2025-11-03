@@ -24,7 +24,7 @@ export default function DebugPage() {
   const testProxyEndpoint = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/proxy/api/jabatans');
+      const response = await fetch('https://axum.synergyinfinity.id/api/jabatans');
       const data = await response.json();
       setDebugInfo({ proxy: data, timestamp: new Date().toISOString() });
     } catch (error: any) {

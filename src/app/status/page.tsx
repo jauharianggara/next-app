@@ -25,7 +25,7 @@ export default function StatusPage() {
 
     // Check 1: Backend Health
     try {
-      const response = await fetch('/api/proxy/karyawans', {
+      const response = await fetch('https://axum.synergyinfinity.id/api/karyawans', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -39,7 +39,7 @@ export default function StatusPage() {
           name: 'Backend Connection',
           status: 'success',
           message: `Backend is running. Response: ${response.status}`,
-          url: 'http://localhost:8080/api/karyawans',
+          url: 'https://axum.synergyinfinity.id/api/karyawans',
           response: data
         });
       } else {
@@ -47,7 +47,7 @@ export default function StatusPage() {
           name: 'Backend Connection',
           status: 'error',
           message: `Backend returned ${response.status}: ${response.statusText}`,
-          url: 'http://localhost:8080/api/karyawans'
+          url: 'https://axum.synergyinfinity.id/api/karyawans'
         });
       }
     } catch (error: any) {
@@ -55,7 +55,7 @@ export default function StatusPage() {
         name: 'Backend Connection',
         status: 'error',
         message: 'Cannot connect to backend server',
-        url: 'http://localhost:8080/api/karyawans',
+        url: 'https://axum.synergyinfinity.id/api/karyawans',
         error: error.message
       });
     }
@@ -88,7 +88,7 @@ export default function StatusPage() {
 
     // Check 3: Jabatan Endpoint
     try {
-      const response = await fetch('/api/proxy/jabatans', {
+      const response = await fetch('https://axum.synergyinfinity.id/api/jabatans', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -102,7 +102,7 @@ export default function StatusPage() {
           name: 'Jabatan Endpoint',
           status: data.length > 0 ? 'success' : 'warning',
           message: data.length > 0 ? `Found ${data.length} job positions` : 'No job positions found in database',
-          url: 'http://localhost:8080/api/jabatans',
+          url: 'https://axum.synergyinfinity.id/api/jabatans',
           response: data
         });
       } else {
@@ -110,7 +110,7 @@ export default function StatusPage() {
           name: 'Jabatan Endpoint',
           status: 'error',
           message: `Jabatan endpoint returned ${response.status}: ${response.statusText}`,
-          url: 'http://localhost:8080/api/jabatans'
+          url: 'https://axum.synergyinfinity.id/api/jabatans'
         });
       }
     } catch (error: any) {
@@ -118,14 +118,14 @@ export default function StatusPage() {
         name: 'Jabatan Endpoint',
         status: 'error',
         message: 'Cannot access jabatan endpoint',
-        url: 'http://localhost:8080/api/jabatans',
+        url: 'https://axum.synergyinfinity.id/api/jabatans',
         error: error.message
       });
     }
 
     // Check 4: Direct Backend (without proxy)
     try {
-      const response = await fetch('http://localhost:8080/api/jabatans', {
+      const response = await fetch('https://axum.synergyinfinity.id/api/jabatans', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -139,7 +139,7 @@ export default function StatusPage() {
           name: 'Direct Backend Access',
           status: 'success',
           message: `Direct access successful. Data length: ${data.length || 0}`,
-          url: 'http://localhost:8080/api/jabatans',
+          url: 'https://axum.synergyinfinity.id/api/jabatans',
           response: data
         });
       } else {
@@ -147,7 +147,7 @@ export default function StatusPage() {
           name: 'Direct Backend Access',
           status: 'error',
           message: `Direct access failed: ${response.status}`,
-          url: 'http://localhost:8080/api/jabatans'
+          url: 'https://axum.synergyinfinity.id/api/jabatans'
         });
       }
     } catch (error: any) {
@@ -155,7 +155,7 @@ export default function StatusPage() {
         name: 'Direct Backend Access',
         status: 'error',
         message: 'CORS error (expected in development)',
-        url: 'http://localhost:8080/api/jabatans',
+        url: 'https://axum.synergyinfinity.id/api/jabatans',
         error: error.message
       });
     }
@@ -262,7 +262,7 @@ export default function StatusPage() {
           </CardHeader>
           <CardContent className="text-yellow-700">
             <ul className="list-disc pl-6 space-y-1">
-              <li>Make sure your backend server is running on <code>http://localhost:8080</code></li>
+              <li>Make sure your backend server is running on <code>https://axum.synergyinfinity.id</code></li>
               <li>Check if you're logged in and have a valid JWT token</li>
               <li>Verify your backend database has jabatan data</li>
               <li>Ensure CORS is configured properly on your backend</li>

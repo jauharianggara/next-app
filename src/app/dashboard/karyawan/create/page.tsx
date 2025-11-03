@@ -63,6 +63,7 @@ export default function CreateKaryawanPage() {
         photoFormData.append('nama', formData.nama);
         photoFormData.append('posisi', jabatans.find(j => j.id.toString() === formData.jabatan_id)?.nama_jabatan || '');
         photoFormData.append('gaji', formData.gaji);
+        photoFormData.append('jabatan_id', formData.jabatan_id);
         photoFormData.append('kantor_id', formData.kantor_id);
         photoFormData.append('foto', photo);
 

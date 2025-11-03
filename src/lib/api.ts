@@ -64,9 +64,7 @@ export const karyawanApi = {
 
   async createWithPhoto(formData: FormData): Promise<ApiResponse<Karyawan>> {
     const response = await apiClient.post('/api/karyawans/with-photo', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+      // Don't set Content-Type - let browser set it with boundary
       transformRequest: [(data) => data], // Don't transform FormData
     });
     return response.data;
@@ -84,9 +82,7 @@ export const karyawanApi = {
 
   async uploadPhoto(id: number, formData: FormData): Promise<ApiResponse<Karyawan>> {
     const response = await apiClient.post(`/api/karyawans/${id}/photo`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+      // Don't set Content-Type - let browser set it with boundary
       transformRequest: [(data) => data], // Don't transform FormData
     });
     return response.data;

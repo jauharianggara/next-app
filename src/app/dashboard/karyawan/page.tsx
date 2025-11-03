@@ -136,7 +136,7 @@ export default function KaryawanListPage() {
                           <TableCell>
                             {karyawan.foto_path ? (
                               <img
-                                src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/${karyawan.foto_path}`}
+                                src={`${process.env.NEXT_PUBLIC_API_URL || 'https://axum.synergyinfinity.id'}/${karyawan.foto_path}`}
                                 alt={karyawan.nama}
                                 className="h-10 w-10 rounded-full object-cover"
                               />
